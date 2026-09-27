@@ -174,6 +174,11 @@ textarea {
   border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--ground); font-family: var(--mono); font-size: 13px; width: 100%;
 }
 .hint { font-size: 13px; color: var(--muted); margin: 0; }
+.import { display: grid; gap: 10px; border-top: 1px solid var(--line-soft); padding-top: 14px; }
+.import dl { margin: 0; display: grid; gap: 8px; font-size: 13.5px; }
+.import dt { font-weight: 700; }
+.import dd { margin: 0; color: var(--muted); }
+.import dd b { color: var(--ink); font-weight: 600; }
 footer { font-size: 12.5px; color: var(--muted); display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 14px; }
 footer p { margin: 0; }
 footer .credit { font-size: 13.5px; color: var(--ink); }
@@ -238,6 +243,18 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
       </div>
       <p class="hint" id="copyHint" hidden>Downloads are blocked in this preview. Copy the text, save it in a plain text file named <code>timetable.ics</code>, then import that file into your calendar.</p>
       <textarea id="icsOut" readonly hidden aria-label="Calendar file text"></textarea>
+      <div class="import">
+        <p class="hint">The .ics file won't open if you double-click it. Import it into your calendar instead:</p>
+        <dl>
+          <dt>Google Calendar</dt>
+          <dd>On a computer, open calendar.google.com. Click the gear icon, then <b>Settings → Import &amp; export</b>. Choose the file, pick a calendar and click <b>Import</b>.</dd>
+          <dt>Apple Calendar (Mac)</dt>
+          <dd>Choose <b>File → Import</b>, pick the file, then choose a calendar.</dd>
+          <dt>Outlook</dt>
+          <dd>In Calendar, click <b>Add calendar → Upload from file</b>, pick the file, then choose a calendar.</dd>
+        </dl>
+        <p class="hint"><b>Tip:</b> Create a new calendar called "LSE timetable" first and import into that. If something changes later, you can delete that calendar and import a fresh file without touching your other events.</p>
+      </div>
     </section>
   </div>
 
@@ -581,7 +598,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
           "DTSTAMP:" + now,
           "DTSTART;TZID=Europe/London:" + date + "T" + hm(r.start),
           "DTEND;TZID=Europe/London:" + date + "T" + hm(r.end),
-          fold("SUMMARY:" + icsEscape(r.code + " " + r.type + (r.group ? " " + r.group : "") + " · " + r.title)),
+          fold("SUMMARY:" + icsEscape(r.code + " " + r.type + (r.group ? " " + r.group : "") + " - " + r.title)),
           fold("LOCATION:" + icsEscape(r.room)),
           fold("DESCRIPTION:" + icsEscape(r.term + " Term, Week " + w)),
           "END:VEVENT");
@@ -598,13 +615,14 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
   function icsReport(res, verb) {
     const st = $("icsStatus");
     st.className = "status";
-    st.textContent = verb + " " + res.count + " events" + (isMine ? "" : " from the example timetable") + "." +
+    st.className = isMine ? "status" : "status err";
+    st.textContent = verb + " " + res.count + " events" + (isMine ? "" : " from the example timetable. Paste your own timetable first to export yours") + "." +
       (res.missing.length ? " Skipped " + res.missing.join(", ") + " Term (no start date)." : "");
   }
 
   $("dlBtn").addEventListener("click", () => {
     const res = buildIcs();
-    const url = URL.createObjectURL(new Blob([res.text], { type: "text/calendar" }));
+    const url = URL.createObjectURL(new Blob([res.text], { type: "text/calendar;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url; a.download = "lse-timetable.ics";
     document.body.appendChild(a); a.click(); a.remove();
