@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Turn your Student LfY Teaching Timetable into a weekly grid, spot clashes and export to your calendar.">
+<title>LfY Week View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root {
+  --ground: #F2F4F3;
+  --surface: #FFFFFF;
+  --ink: #18221F;
+  --muted: #5B6863;
+  --line: #D8DEDB;
+  --line-soft: #E8ECEA;
+  --accent: #1E5A85;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E1ECF4;
+  --clash: #B93C0C;
+  --clash-soft: #FBE7DC;
+  --c0-bg: #DCEAF7; --c0-fg: #16466E;
+  --c1-bg: #E3F1E4; --c1-fg: #22572A;
+  --c2-bg: #F7E6D6; --c2-fg: #7A3E0E;
+  --c3-bg: #ECE3F6; --c3-fg: #4C2A78;
+  --c4-bg: #F6E0E6; --c4-fg: #7A1F3A;
+  --c5-bg: #DDF0EF; --c5-fg: #135855;
+  --c6-bg: #F3EED0; --c6-fg: #5E500B;
+  --c7-bg: #E4E7EC; --c7-fg: #333C4A;
+  --sans: "Schibsted Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --hour: 58px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #111615; --surface: #192120; --ink: #E4EBE8; --muted: #93A19C;
+    --line: #2C3633; --line-soft: #222B29; --accent: #86BCE0; --accent-ink: #0D1A24; --accent-soft: #1C2D39;
+    --clash: #F4935F; --clash-soft: #3A2317;
+    --c0-bg: #1D3448; --c0-fg: #B9D8F2;
+    --c1-bg: #1E3623; --c1-fg: #BDE3C1;
+    --c2-bg: #3E2B1A; --c2-fg: #F1CDA8;
+    --c3-bg: #2E2540; --c3-fg: #D6C6F0;
+    --c4-bg: #3D2029; --c4-fg: #F2C1CF;
+    --c5-bg: #173634; --c5-fg: #B4E4E1;
+    --c6-bg: #36321A; --c6-fg: #E8DD9E;
+    --c7-bg: #272C34; --c7-fg: #CBD2DD;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #111615; --surface: #192120; --ink: #E4EBE8; --muted: #93A19C;
+  --line: #2C3633; --line-soft: #222B29; --accent: #86BCE0; --accent-ink: #0D1A24; --accent-soft: #1C2D39;
+  --clash: #F4935F; --clash-soft: #3A2317;
+  --c0-bg: #1D3448; --c0-fg: #B9D8F2;
+  --c1-bg: #1E3623; --c1-fg: #BDE3C1;
+  --c2-bg: #3E2B1A; --c2-fg: #F1CDA8;
+  --c3-bg: #2E2540; --c3-fg: #D6C6F0;
+  --c4-bg: #3D2029; --c4-fg: #F2C1CF;
+  --c5-bg: #173634; --c5-fg: #B4E4E1;
+  --c6-bg: #36321A; --c6-fg: #E8DD9E;
+  --c7-bg: #272C34; --c7-fg: #CBD2DD;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-inline: 16px;
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 22px; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; text-wrap: balance; }
+h1 span { color: var(--muted); font-weight: 500; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+.source-chip {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--surface);
+  white-space: nowrap;
+}
+.source-chip.mine { color: var(--accent); border-color: var(--accent); }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 3px; gap: 2px; }
+.seg button {
+  border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 14px; color: var(--muted);
+}
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+.seg button:disabled { opacity: .35; cursor: default; }
+.weeks { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.weeks .lbl { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-right: 4px; }
+.wk {
+  font-family: var(--mono); font-size: 13px; font-weight: 500; width: 34px; height: 32px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); position: relative;
+  font-variant-numeric: tabular-nums;
+}
+.wk.empty { color: var(--muted); opacity: .55; }
+.wk[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); opacity: 1; }
+.wk.has-clash::after {
+  content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--clash);
+}
+
+.summary { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--muted); align-items: baseline; }
+.summary strong { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.summary .clashnote { color: var(--clash); font-weight: 600; }
+
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.grid { display: grid; min-width: 720px; }
+.grid-head { display: contents; }
+.dayhead {
+  padding: 12px 10px 10px; font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: baseline; gap: 6px;
+}
+.dayhead small { font-family: var(--mono); font-weight: 400; color: var(--muted); font-size: 12px; }
+.corner { border-bottom: 1px solid var(--line); }
+.hours { position: relative; }
+.hours div {
+  position: absolute; right: 8px; transform: translateY(-50%); font-family: var(--mono); font-size: 11px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.col { position: relative; border-left: 1px solid var(--line-soft); }
+.col .rule { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line-soft); }
+.col .rule.half { border-top-style: dashed; opacity: .6; }
+
+.ev {
+  position: absolute; border-radius: 7px; padding: 5px 7px; overflow: hidden;
+  background: var(--bg); color: var(--fg); font-size: 12.5px; line-height: 1.3;
+  display: flex; flex-direction: column; gap: 1px; border: 1px solid transparent;
+}
+.ev .code { font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: -0.01em; }
+.ev .ttl { font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ev .meta { font-family: var(--mono); font-size: 11px; opacity: .85; }
+.ev.short .ttl { display: none; }
+.ev.clash { border-color: var(--clash); box-shadow: inset 0 0 0 1px var(--clash); }
+.ev .clash-tag {
+  align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--clash); color: var(--surface); padding: 0 5px; border-radius: 3px; margin-bottom: 1px;
+}
+.empty-week { padding: 40px 20px; text-align: center; color: var(--muted); }
+
+.lower { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 860px) { .lower { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 14px; }
+.panel h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; color: var(--muted); }
+.steps b { color: var(--ink); font-weight: 600; }
+textarea {
+  width: 100%; min-height: 150px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  background: var(--ground); font-family: var(--mono); font-size: 12px; line-height: 1.5;
+}
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 14px;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn:disabled { opacity: .45; cursor: default; }
+.status { font-size: 13px; color: var(--muted); }
+.status.err { color: var(--clash); }
+.privacy { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line-soft); padding-top: 12px; margin: 0; }
+
+.dates { display: grid; gap: 8px; }
+.dates label { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 10px; font-size: 14px; }
+.dates input {
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--ground); font-family: var(--mono); font-size: 13px; width: 100%;
+}
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+footer { font-size: 12.5px; color: var(--muted); display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 14px; }
+footer p { margin: 0; }
+footer .credit { font-size: 13.5px; color: var(--ink); }
+footer a { color: var(--accent); font-weight: 600; text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted); user-select: all; }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>LfY Week View <span>for LSE students</span></h1>
+      <p class="lede">Paste the Teaching Timetable list from LfY and get the weekly grid it should have come with. Pick a term and a teaching week to see exactly where you need to be.</p>
+    </div>
+    <span class="source-chip" id="sourceChip">Example timetable</span>
+  </header>
+
+  <div class="controls">
+    <div class="seg" id="terms" role="group" aria-label="Term"></div>
+    <div class="weeks" id="weeks" role="group" aria-label="Teaching week"><span class="lbl">Week</span></div>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="board" id="board"></div>
+
+  <div class="lower">
+    <section class="panel" aria-labelledby="pasteH">
+      <h2 id="pasteH">Use your own timetable</h2>
+      <ol class="steps">
+        <li>In <b>Student LfY</b>, open <b>My studies → Teaching Timetable</b>.</li>
+        <li>Press <b>Ctrl+A</b> (or <b>⌘A</b>) then <b>Ctrl+C</b> to copy the whole page.</li>
+        <li>Paste it below. Menus and other page text are ignored.</li>
+      </ol>
+      <textarea id="paste" spellcheck="false" aria-label="Paste your timetable" placeholder="Paste the copied LfY page here"></textarea>
+      <div class="row">
+        <button class="btn primary" id="buildBtn" type="button">Build my week</button>
+        <button class="btn" id="exampleBtn" type="button">Show example</button>
+        <span class="status" id="parseStatus" role="status"></span>
+      </div>
+      <p class="privacy">Your timetable is read inside this page and kept only in this browser. Nothing is uploaded, and the page never asks for your LSE login.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="calH">
+      <h2 id="calH">Add to your calendar</h2>
+      <p class="hint">Creates one event per session, for the right weeks only. Google Calendar, Apple Calendar and Outlook can all import the .ics file. Check the Week 1 Mondays against LSE's published term dates first.</p>
+      <div class="dates">
+        <label for="d-Autumn">Autumn Term <input type="date" id="d-Autumn" value="2026-09-28"></label>
+        <label for="d-Winter">Winter Term <input type="date" id="d-Winter" value="2027-01-18"></label>
+        <label for="d-Spring">Spring Term <input type="date" id="d-Spring" value="2027-04-26"></label>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="dlBtn" type="button">Download .ics</button>
+        <button class="btn" id="copyBtn" type="button">Copy .ics text</button>
+        <span class="status" id="icsStatus" role="status"></span>
+      </div>
+      <p class="hint" id="copyHint" hidden>Downloads are blocked in this preview. Copy the text, save it in a plain text file named <code>timetable.ics</code>, then import that file into your calendar.</p>
+      <textarea id="icsOut" readonly hidden aria-label="Calendar file text"></textarea>
+    </section>
+  </div>
+
+  <footer>
+    <p class="credit">Made by <a href="https://www.linkedin.com/in/hsingyu" target="_blank" rel="noopener">Hsing-Yu (Cosmo) Wang</a> · <span class="email">h.wang168@lse.ac.uk</span></p>
+    <p>Unofficial student-made tool. Not affiliated with or endorsed by LSE. Always check LfY for room changes.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const TERMS = ["Autumn", "Winter", "Spring"];
+  const TYPES = "Lecture|Seminar|Class|Workshop|Lab|Tutorial|Practical|Help Session|Office Hour|Other";
+
+  const EXAMPLE = [
+    "Autumn Term",
+    "Day\tStart\tEnd\tCourse\tTitle\tType\t#\tPrimary Location\tWeeks",
+    "Monday\t10:00\t12:00\tEC220\tIntroduction to Econometrics\tLecture\t\tCBG.2.06\t1 2 3 4 5 · 7 8 9 10 11",
+    "Monday\t14:00\t15:00\tEC220\tIntroduction to Econometrics\tClass\t04\tPAN.2.01\t· 2 3 4 5 · 7 8 9 10 11",
+    "Tuesday\t09:00\t10:00\tST202\tProbability, Distribution Theory and Inference\tLecture\t\tCLM.2.02\t1 2 3 4 5 · 7 8 9 10 11",
+    "Tuesday\t11:00\t12:00\tST202\tProbability, Distribution Theory and Inference\tClass\t02\tFAW.1.04\t· 2 3 4 5 · 7 8 9 10 11",
+    "Wednesday\t10:00\t12:00\tGV227\tPolitical Economy of Europe\tLecture\t\tSAL.G.24\t1 2 3 4 5 · 7 8 9 10 11",
+    "Wednesday\t11:00\t12:00\tLN991.A\tAcademic Writing Skills\tClass\t08\tKSW.1.02\t· 2 3 4 5 · · · · · ·",
+    "Thursday\t13:00\t15:00\tMG228\tManaging Innovation\tLecture\t\tMAR.1.08\t1 2 3 4 5 · 7 8 9 10 11",
+    "Thursday\t16:00\t17:00\tGV227\tPolitical Economy of Europe\tSeminar\t03\tCBG.1.04\t· 2 3 4 5 · 7 8 9 10 11",
+    "Friday\t10:00\t11:30\tMG228\tManaging Innovation\tSeminar\t01\tNAB.2.04\t· 2 3 4 5 · 7 8 9 10 11",
+    "Friday\t12:00\t13:00\tEC220\tIntroduction to Econometrics\tLecture\t\tOLD.1.01\t1 · · · · · · · · · ·",
+    "Winter Term",
+    "Monday\t10:00\t12:00\tEC220\tIntroduction to Econometrics\tLecture\t\tCBG.2.06\t1 2 3 4 5 · 7 8 9 10 11",
+    "Monday\t14:00\t15:00\tEC220\tIntroduction to Econometrics\tClass\t04\tPAN.2.01\t· 2 3 4 5 · 7 8 9 10 11",
+    "Tuesday\t09:00\t10:00\tST202\tProbability, Distribution Theory and Inference\tLecture\t\tCLM.2.02\t1 2 3 4 5 · 7 8 9 10 11",
+    "Thursday\t10:00\t12:00\tMG228\tManaging Innovation\tLecture\t\tMAR.1.08\t1 2 3 4 5 · 7 8 9 10 11",
+    "Spring Term",
+    "Tuesday\t10:00\t12:00\tEC220\tIntroduction to Econometrics\tLecture\t\tCBG.1.07\t1 · · · · · · · · · ·"
+  ].join("\n");
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const fmt = (m) => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+
+  function parse(text) {
+    const flat = text.replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+    const heads = [];
+    const headRe = /\b(Autumn|Winter|Spring|Summer) Term\b/gi;
+    let h;
+    while ((h = headRe.exec(flat))) heads.push({ at: h.index, term: h[1][0].toUpperCase() + h[1].slice(1).toLowerCase() });
+    const rowRe = new RegExp(
+      "\\b(" + DAYS.join("|") + ")\\s+(\\d{1,2}:\\d{2})\\s+(\\d{1,2}:\\d{2})\\s+([A-Z]{2,4}\\d{3}[A-Z0-9.]*)\\s+(.+?)\\s+(" + TYPES +
+      ")\\s+(?:(\\d{1,3})\\s+)?(\\S+)\\s*((?:(?:1[01]|[1-9]|[·•.\\-])(?:\\s+|$))*)", "gi");
+    const rows = [];
+    let m;
+    while ((m = rowRe.exec(flat))) {
+      let term = "Autumn";
+      for (const hd of heads) if (hd.at < m.index) term = hd.term;
+      const weeks = (m[9] || "").trim().split(/\s+/).filter((w) => /^\d+$/.test(w)).map(Number);
+      const day = DAYS.findIndex((d) => d.toLowerCase() === m[1].toLowerCase());
+      rows.push({
+        term, day, start: toMin(m[2]), end: toMin(m[3]), code: m[4], title: m[5].trim(),
+        type: m[6][0].toUpperCase() + m[6].slice(1).toLowerCase(), group: m[7] || "", room: m[8],
+        weeks: weeks.length ? weeks : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      });
+    }
+    return rows;
+  }
+
+  let rows = [];
+  let isMine = false;
+  let term = "Autumn";
+  let week = 2;
+  const colorOf = {};
+
+  function assignColors() {
+    Object.keys(colorOf).forEach((k) => delete colorOf[k]);
+    const codes = [...new Set(rows.map((r) => r.code))];
+    codes.forEach((c, i) => { colorOf[c] = i % 8; });
+  }
+
+  function termRows(t) { return rows.filter((r) => r.term === t); }
+  function weekRows(t, w) { return termRows(t).filter((r) => r.weeks.includes(w)); }
+
+  function layoutDay(evs) {
+    evs.sort((a, b) => a.start - b.start || b.end - a.end);
+    const out = [];
+    let cluster = [], clusterEnd = -1;
+    const flush = () => {
+      const lanes = [];
+      cluster.forEach((e) => {
+        let lane = lanes.findIndex((end) => end <= e.start);
+        if (lane === -1) { lane = lanes.length; lanes.push(e.end); } else lanes[lane] = e.end;
+        e._lane = lane;
+      });
+      cluster.forEach((e) => { e._lanes = lanes.length; e._clash = cluster.length > 1 && cluster.some((o) => o !== e && o.start < e.end && e.start < o.end); out.push(e); });
+      cluster = [];
+    };
+    evs.forEach((e) => {
+      if (cluster.length && e.start >= clusterEnd) flush();
+      cluster.push(e);
+      clusterEnd = Math.max(clusterEnd, e.end);
+    });
+    if (cluster.length) flush();
+    return out;
+  }
+
+  function clashCount(t, w) {
+    let n = 0;
+    for (let d = 0; d < 7; d++) {
+      const evs = weekRows(t, w).filter((r) => r.day === d).map((r) => ({ ...r }));
+      layoutDay(evs).forEach((e) => { if (e._clash) n++; });
+    }
+    return n;
+  }
+
+  function renderTerms() {
+    const box = $("terms");
+    box.innerHTML = "";
+    TERMS.forEach((t) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.id = "term-" + t;
+      b.textContent = t + " Term";
+      b.setAttribute("aria-pressed", String(t === term));
+      b.disabled = termRows(t).length === 0;
+      b.addEventListener("click", () => { term = t; pickWeek(); store.set("lwv.term", term); render(); });
+      box.appendChild(b);
+    });
+  }
+
+  function renderWeeks() {
+    const box = $("weeks");
+    box.querySelectorAll(".wk").forEach((n) => n.remove());
+    for (let w = 1; w <= 11; w++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "wk";
+      b.id = "wk-" + w;
+      b.textContent = w;
+      const n = weekRows(term, w).length;
+      if (!n) b.classList.add("empty");
+      if (n && clashCount(term, w)) b.classList.add("has-clash");
+      b.title = "Week " + w + ": " + (n ? n + " session" + (n > 1 ? "s" : "") : "no sessions");
+      b.setAttribute("aria-pressed", String(w === week));
+      b.addEventListener("click", () => { week = w; store.set("lwv.week", String(week)); render(); });
+      box.appendChild(b);
+    }
+  }
+
+  function renderSummary(evs) {
+    const mins = evs.reduce((s, e) => s + (e.end - e.start), 0);
+    const clashes = clashCount(term, week);
+    const hrs = Math.round(mins / 6) / 10;
+    $("summary").innerHTML =
+      "<span><strong>" + term + " Term, Week " + week + "</strong></span>" +
+      "<span><strong>" + evs.length + "</strong> session" + (evs.length === 1 ? "" : "s") + "</span>" +
+      "<span><strong>" + hrs + "</strong> contact hours</span>" +
+      (clashes ? "<span class=\"clashnote\">" + clashes + " sessions overlap this week</span>" : "<span>No overlaps</span>");
+  }
+
+  function renderBoard() {
+    const board = $("board");
+    const evs = weekRows(term, week);
+    renderSummary(evs);
+    board.innerHTML = "";
+    if (!evs.length) {
+      board.innerHTML = "<div class=\"empty-week\">No sessions in " + term + " Term, Week " + week + ".</div>";
+      return;
+    }
+    const all = termRows(term);
+    const lastDay = Math.max(4, ...all.map((r) => r.day));
+    const first = Math.min(9 * 60, ...all.map((r) => Math.floor(r.start / 60) * 60));
+    const last = Math.max(18 * 60, ...all.map((r) => Math.ceil(r.end / 60) * 60));
+    const hourPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 58;
+    const px = (m) => (m - first) / 60 * hourPx;
+    const height = px(last);
+
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    grid.style.gridTemplateColumns = "56px repeat(" + (lastDay + 1) + ", minmax(0, 1fr))";
+
+    grid.appendChild(Object.assign(document.createElement("div"), { className: "corner" }));
+    for (let d = 0; d <= lastDay; d++) {
+      const n = evs.filter((e) => e.day === d).length;
+      const hd = document.createElement("div");
+      hd.className = "dayhead";
+      hd.innerHTML = "<span>" + DAYS[d] + "</span><small>" + (n ? n : "–") + "</small>";
+      grid.appendChild(hd);
+    }
+
+    const hours = document.createElement("div");
+    hours.className = "hours";
+    hours.style.height = height + "px";
+    for (let t = first + 60; t < last; t += 60) {
+      const l = document.createElement("div");
+      l.style.top = px(t) + "px";
+      l.textContent = fmt(t);
+      hours.appendChild(l);
+    }
+    grid.appendChild(hours);
+
+    for (let d = 0; d <= lastDay; d++) {
+      const col = document.createElement("div");
+      col.className = "col";
+      col.style.height = height + "px";
+      for (let t = first + 30; t < last; t += 30) {
+        const r = document.createElement("div");
+        r.className = "rule" + (t % 60 ? " half" : "");
+        r.style.top = px(t) + "px";
+        col.appendChild(r);
+      }
+      const dayEvs = layoutDay(evs.filter((e) => e.day === d).map((e) => ({ ...e })));
+      dayEvs.forEach((e) => {
+        const el = document.createElement("div");
+        const c = colorOf[e.code];
+        el.className = "ev" + (e._clash ? " clash" : "") + (e.end - e.start <= 60 ? " short" : "");
+        el.style.setProperty("--bg", "var(--c" + c + "-bg)");
+        el.style.setProperty("--fg", "var(--c" + c + "-fg)");
+        const w = 100 / e._lanes;
+        el.style.left = "calc(" + (e._lane * w) + "% + 3px)";
+        el.style.width = "calc(" + w + "% - 6px)";
+        el.style.top = (px(e.start) + 2) + "px";
+        el.style.height = (px(e.end) - px(e.start) - 4) + "px";
+        el.title = e.code + " " + e.title + "\n" + e.type + (e.group ? " group " + e.group : "") + "\n" + fmt(e.start) + "–" + fmt(e.end) + "  " + e.room;
+        const parts = [];
+        if (e._clash) parts.push("<span class=\"clash-tag\">Clash</span>");
+        parts.push("<span class=\"code\"></span>", "<span class=\"ttl\"></span>", "<span class=\"meta\"></span>");
+        el.innerHTML = parts.join("");
+        el.querySelector(".code").textContent = e.code;
+        el.querySelector(".ttl").textContent = e.title;
+        el.querySelector(".meta").textContent = e.type + (e.group ? " " + e.group : "") + " · " + e.room + " · " + fmt(e.start);
+        col.appendChild(el);
+      });
+      grid.appendChild(col);
+    }
+    board.appendChild(grid);
+  }
+
+  function pickWeek() {
+    if (!weekRows(term, week).length) {
+      let best = 1, bestN = -1;
+      for (let w = 1; w <= 11; w++) { const n = weekRows(term, w).length; if (n > bestN) { best = w; bestN = n; } }
+      week = best;
+    }
+  }
+
+  function render() {
+    const chip = $("sourceChip");
+    chip.textContent = isMine ? "Your timetable · " + rows.length + " rows" : "Example timetable";
+    chip.classList.toggle("mine", isMine);
+    renderTerms();
+    renderWeeks();
+    renderBoard();
+  }
+
+  function load(text, mine) {
+    const parsed = parse(text);
+    if (!parsed.length) return 0;
+    rows = parsed;
+    isMine = mine;
+    assignColors();
+    if (!termRows(term).length) term = TERMS.find((t) => termRows(t).length) || "Autumn";
+    pickWeek();
+    render();
+    return parsed.length;
+  }
+
+  function build() {
+    const text = $("paste").value;
+    const st = $("parseStatus");
+    if (!text.trim()) { st.className = "status err"; st.textContent = "Paste your Teaching Timetable page first."; return; }
+    const n = load(text, true);
+    if (!n) {
+      st.className = "status err";
+      st.textContent = "No sessions found. Copy the Teaching Timetable tab itself, including the Day, Start and End columns.";
+      return;
+    }
+    store.set("lwv.paste", text);
+    const byTerm = TERMS.map((t) => termRows(t).length).map((c, i) => c ? c + " " + TERMS[i] : "").filter(Boolean).join(", ");
+    st.className = "status";
+    st.textContent = "Read " + n + " sessions (" + byTerm + ").";
+  }
+
+  $("buildBtn").addEventListener("click", build);
+  $("paste").addEventListener("paste", () => setTimeout(build, 0));
+  $("exampleBtn").addEventListener("click", () => {
+    store.del("lwv.paste");
+    $("paste").value = "";
+    $("parseStatus").textContent = "";
+    load(EXAMPLE, false);
+  });
+
+  // Calendar export
+  function icsEscape(s) { return String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n"); }
+  function fold(line) {
+    const out = [];
+    while (line.length > 74) { out.push(line.slice(0, 74)); line = " " + line.slice(74); }
+    out.push(line);
+    return out.join("\r\n");
+  }
+  function ymd(d) { return d.getUTCFullYear() + String(d.getUTCMonth() + 1).padStart(2, "0") + String(d.getUTCDate()).padStart(2, "0"); }
+  function hm(m) { return String(Math.floor(m / 60)).padStart(2, "0") + String(m % 60).padStart(2, "0") + "00"; }
+
+  function buildIcs() {
+    const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+    const lines = [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//LfY Week View//EN", "CALSCALE:GREGORIAN", "X-WR-CALNAME:LSE timetable",
+      "BEGIN:VTIMEZONE", "TZID:Europe/London",
+      "BEGIN:DAYLIGHT", "TZOFFSETFROM:+0000", "TZOFFSETTO:+0100", "TZNAME:BST", "DTSTART:19700329T010000", "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU", "END:DAYLIGHT",
+      "BEGIN:STANDARD", "TZOFFSETFROM:+0100", "TZOFFSETTO:+0000", "TZNAME:GMT", "DTSTART:19701025T020000", "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU", "END:STANDARD",
+      "END:VTIMEZONE"
+    ];
+    let count = 0;
+    const missing = [];
+    rows.forEach((r, i) => {
+      const input = $("d-" + r.term);
+      const v = input && input.value;
+      if (!v) { if (!missing.includes(r.term)) missing.push(r.term); return; }
+      const [y, mo, da] = v.split("-").map(Number);
+      const base = new Date(Date.UTC(y, mo - 1, da));
+      const mondayShift = (base.getUTCDay() + 6) % 7;
+      r.weeks.forEach((w) => {
+        const d = new Date(base.getTime() + ((w - 1) * 7 + r.day - mondayShift) * 86400000);
+        const date = ymd(d);
+        lines.push("BEGIN:VEVENT",
+          "UID:" + [r.code, r.type, r.group || "x", r.term, w, r.day, r.start, i].join("-").replace(/[^A-Za-z0-9.-]/g, "") + "@lfy-week-view",
+          "DTSTAMP:" + now,
+          "DTSTART;TZID=Europe/London:" + date + "T" + hm(r.start),
+          "DTEND;TZID=Europe/London:" + date + "T" + hm(r.end),
+          fold("SUMMARY:" + icsEscape(r.code + " " + r.type + (r.group ? " " + r.group : "") + " · " + r.title)),
+          fold("LOCATION:" + icsEscape(r.room)),
+          fold("DESCRIPTION:" + icsEscape(r.term + " Term, Week " + w)),
+          "END:VEVENT");
+        count++;
+      });
+    });
+    lines.push("END:VCALENDAR");
+    return { text: lines.join("\r\n") + "\r\n", count, missing };
+  }
+
+  const framed = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+  if (framed) { $("dlBtn").hidden = true; $("copyHint").hidden = false; }
+
+  function icsReport(res, verb) {
+    const st = $("icsStatus");
+    st.className = "status";
+    st.textContent = verb + " " + res.count + " events" + (isMine ? "" : " from the example timetable") + "." +
+      (res.missing.length ? " Skipped " + res.missing.join(", ") + " Term (no start date)." : "");
+  }
+
+  $("dlBtn").addEventListener("click", () => {
+    const res = buildIcs();
+    const url = URL.createObjectURL(new Blob([res.text], { type: "text/calendar" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "lse-timetable.ics";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    icsReport(res, "Downloaded");
+  });
+
+  $("copyBtn").addEventListener("click", () => {
+    const res = buildIcs();
+    const out = $("icsOut");
+    out.value = res.text;
+    const fallback = () => {
+      out.hidden = false; out.focus(); out.select();
+      const st = $("icsStatus"); st.className = "status";
+      st.textContent = "Copying was blocked. The text is selected below; press Ctrl+C.";
+    };
+    try {
+      navigator.clipboard.writeText(res.text).then(() => { out.hidden = true; icsReport(res, "Copied"); }, fallback);
+    } catch (e) { fallback(); }
+  });
+
+  TERMS.forEach((t) => {
+    const saved = store.get("lwv.date." + t);
+    if (saved) $("d-" + t).value = saved;
+    $("d-" + t).addEventListener("change", (ev) => store.set("lwv.date." + t, ev.target.value));
+  });
+
+  // Boot
+  const savedTerm = store.get("lwv.term");
+  if (savedTerm && TERMS.includes(savedTerm)) term = savedTerm;
+  const savedWeek = parseInt(store.get("lwv.week") || "", 10);
+  if (savedWeek >= 1 && savedWeek <= 11) week = savedWeek;
+  const savedPaste = store.get("lwv.paste");
+  if (savedPaste && load(savedPaste, true)) {
+    $("paste").value = savedPaste;
+  } else {
+    load(EXAMPLE, false);
+  }
+})();
+</script>
+
+</body>
+</html>
