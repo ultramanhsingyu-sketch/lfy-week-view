@@ -207,12 +207,14 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     <section class="panel" aria-labelledby="pasteH">
       <h2 id="pasteH">Use your own timetable</h2>
       <ol class="steps">
-        <li>In <b>Student LfY</b>, open <b>My studies → Teaching Timetable</b>.</li>
-        <li>Press <b>Ctrl+A</b> (or <b>⌘A</b>) then <b>Ctrl+C</b> to copy the whole page.</li>
-        <li>Paste it below. Menus and other page text are ignored.</li>
+        <li>Sign in to the <b>new Student LfY</b> and click <b>My studies</b> in the top menu.</li>
+        <li>Open the <b>TEACHING TIMETABLE</b> tab.</li>
+        <li>Find the line <b>“It is currently pre-enrolment period for the upcoming academic year.”</b> (the wording changes during the year; it's the sentence just above the Autumn Term table).</li>
+        <li>With your mouse, <b>click and drag</b> to select everything <b>below</b> that line: start at <b>Autumn Term</b> and go down to the last row of the last table. <b>Ctrl+A</b> doesn't work on this page.</li>
+        <li>Copy it (<b>Ctrl+C</b>, or <b>⌘C</b> on a Mac), then paste it into the box below (<b>Ctrl+V</b> / <b>⌘V</b>). Your week appears straight away.</li>
       </ol>
-      <p class="hint" id="pasteNote">The box below shows what a copied page looks like, using a made-up timetable. Click in it and paste yours to replace it.</p>
-      <textarea id="paste" spellcheck="false" aria-label="Paste your timetable" placeholder="Paste the copied LfY page here"></textarea>
+      <p class="hint">It's fine if your selection includes extra words or headings. Only the timetable rows are read.</p>
+      <textarea id="paste" spellcheck="false" aria-label="Paste your timetable" placeholder="Paste your Teaching Timetable here"></textarea>
       <div class="row">
         <button class="btn primary" id="buildBtn" type="button">Build my week</button>
         <button class="btn" id="exampleBtn" type="button">Show example</button>
@@ -515,12 +517,9 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     return parsed.length;
   }
 
-  const showingExample = () => $("paste").value === EXAMPLE;
-
   function showExample() {
     store.del("lwv.paste");
-    $("paste").value = EXAMPLE;
-    $("pasteNote").hidden = false;
+    $("paste").value = "";
     $("parseStatus").textContent = "";
     load(EXAMPLE, false);
   }
@@ -528,9 +527,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
   function build() {
     const text = $("paste").value;
     const st = $("parseStatus");
-    if (showingExample()) { showExample(); return; }
-    if (!text.trim()) { st.className = "status err"; st.textContent = "Paste your Teaching Timetable page first."; return; }
-    $("pasteNote").hidden = true;
+    if (!text.trim()) { st.className = "status err"; st.textContent = "Paste your Teaching Timetable first."; return; }
     const n = load(text, true);
     if (!n) {
       st.className = "status err";
@@ -544,11 +541,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
   }
 
   $("buildBtn").addEventListener("click", build);
-  $("paste").addEventListener("focus", (ev) => { if (showingExample()) ev.target.select(); });
-  $("paste").addEventListener("paste", (ev) => {
-    if (showingExample()) ev.target.value = "";
-    setTimeout(build, 0);
-  });
+  $("paste").addEventListener("paste", () => setTimeout(build, 0));
   $("exampleBtn").addEventListener("click", showExample);
 
   // Calendar export
@@ -645,9 +638,8 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
   const savedWeek = parseInt(store.get("lwv.week") || "", 10);
   if (savedWeek >= 1 && savedWeek <= 11) week = savedWeek;
   const savedPaste = store.get("lwv.paste");
-  if (savedPaste && savedPaste !== EXAMPLE && load(savedPaste, true)) {
+  if (savedPaste && load(savedPaste, true)) {
     $("paste").value = savedPaste;
-    $("pasteNote").hidden = true;
   } else {
     showExample();
   }
