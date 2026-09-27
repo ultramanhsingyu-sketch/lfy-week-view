@@ -71,7 +71,7 @@ body {
   font-family: var(--sans);
   font-size: 15px;
   line-height: 1.5;
-  padding-inline: 16px;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
   padding-block: 28px 48px;
 }
 .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 22px; }
@@ -168,6 +168,16 @@ h1 span { color: var(--muted); font-weight: 500; }
   background: var(--clash); color: var(--surface); padding: 0 5px; border-radius: 3px;
 }
 .aempty { color: var(--muted); font-size: 13px; margin: 0; }
+/* Phones held sideways: keep the week grid, but fit it to the screen */
+@media (max-height: 500px) and (pointer: coarse) and (min-width: 641px) {
+  :root { --timecol: 42px; --hour: 62px; }
+  .grid { min-width: 0; }
+  .dayhead { padding: 8px 6px; font-size: 13px; }
+  .hours div { right: 5px; font-size: 10px; }
+  .ev { padding: 4px 5px; font-size: 12px; }
+  .ev .code { font-size: 11px; }
+  .ev .meta { font-size: 10px; }
+}
 @media (max-width: 640px) {
   .term-word { display: none; }
   .seg button { padding: 6px 14px; }
@@ -511,7 +521,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
 
     const grid = document.createElement("div");
     grid.className = "grid";
-    grid.style.gridTemplateColumns = "56px repeat(" + (lastDay + 1) + ", minmax(0, 1fr))";
+    grid.style.gridTemplateColumns = "var(--timecol, 56px) repeat(" + (lastDay + 1) + ", minmax(0, 1fr))";
 
     grid.appendChild(Object.assign(document.createElement("div"), { className: "corner" }));
     for (let d = 0; d <= lastDay; d++) {
@@ -562,7 +572,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
         el.innerHTML = parts.join("");
         el.querySelector(".code").textContent = e.code;
         el.querySelector(".ttl").textContent = e.title;
-        el.querySelector(".meta").textContent = e.type + (e.group ? " " + e.group : "") + " · " + e.room + " · " + fmt(e.start);
+        el.querySelector(".meta").textContent = e.type + (e.group ? " " + e.group : "") + " · " + e.room;
         col.appendChild(el);
       });
       grid.appendChild(col);
