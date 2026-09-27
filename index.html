@@ -110,6 +110,7 @@ h1 span { color: var(--muted); font-weight: 500; }
   content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--clash);
 }
 
+.pdf-box { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .summary { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--muted); align-items: baseline; }
 .summary strong { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
 .summary .clashnote { color: var(--clash); font-weight: 600; }
@@ -202,6 +203,10 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
   <div class="controls">
     <div class="seg" id="terms" role="group" aria-label="Term"></div>
     <div class="weeks" id="weeks" role="group" aria-label="Teaching week"><span class="lbl">Week</span></div>
+    <div class="pdf-box">
+      <span class="status" id="pdfStatus" role="status"></span>
+      <button class="btn" id="pdfBtn" type="button">Download PDF</button>
+    </div>
   </div>
 
   <div class="summary" id="summary"></div>
@@ -609,8 +614,138 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     return { text: lines.join("\r\n") + "\r\n", count, missing };
   }
 
+  // PDF export of the week on screen
+  const SITE_URL = "https://ultramanhsingyu-sketch.github.io/lfy-week-view/";
+  const PDF_COLORS = [
+    ["#DCEAF7", "#16466E"], ["#E3F1E4", "#22572A"], ["#F7E6D6", "#7A3E0E"], ["#ECE3F6", "#4C2A78"],
+    ["#F6E0E6", "#7A1F3A"], ["#DDF0EF", "#135855"], ["#F3EED0", "#5E500B"], ["#E4E7EC", "#333C4A"]
+  ];
+
+  function loadJsPdf() {
+    if (window.jspdf) return Promise.resolve(window.jspdf.jsPDF);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload = () => (window.jspdf ? resolve(window.jspdf.jsPDF) : reject(new Error("jsPDF missing")));
+      s.onerror = () => reject(new Error("load failed"));
+      document.head.appendChild(s);
+    });
+  }
+
+  function drawWeekPdf(jsPDF, data) {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const W = 297, H = 210, M = 12, timeW = 13, headH = 8;
+    const ink = "#18221F", muted = "#5B6863", line = "#D8DEDB", clash = "#B93C0C";
+    const f2 = (m) => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+
+    doc.setTextColor(ink); doc.setFont("helvetica", "bold"); doc.setFontSize(18);
+    doc.text(data.title, M, M + 5);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(muted);
+    doc.text(data.subtitle, M, M + 11);
+
+    const gx = M + timeW, gy = M + 17, gw = W - M - gx, gb = H - M - 7;
+    const nDays = data.days.length, dayW = gw / nDays;
+    const hourH = (gb - gy - headH) / ((data.last - data.first) / 60);
+    const y = (m) => gy + headH + (m - data.first) / 60 * hourH;
+
+    doc.setDrawColor(line); doc.setLineWidth(0.2);
+    data.days.forEach((name, d) => {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(ink);
+      doc.text(name, gx + d * dayW + 2, gy + 5.5);
+    });
+    doc.line(gx, gy + headH, W - M, gy + headH);
+    for (let t = data.first; t <= data.last; t += 60) {
+      doc.line(gx, y(t), W - M, y(t));
+      if (t > data.first && t < data.last) {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(muted);
+        doc.text(f2(t), gx - 2, y(t) + 1, { align: "right" });
+      }
+    }
+    for (let d = 0; d <= nDays; d++) doc.line(gx + d * dayW, gy + headH, gx + d * dayW, gb);
+
+    data.events.forEach((e) => {
+      const [bg, fg] = PDF_COLORS[e.color];
+      const laneW = dayW / e._lanes;
+      const x = gx + e.day * dayW + e._lane * laneW + 0.8, w = laneW - 1.6;
+      const top = y(e.start) + 0.6, h = y(e.end) - y(e.start) - 1.2, bottom = top + h - 1;
+      doc.setFillColor(bg);
+      doc.roundedRect(x, top, w, h, 1.4, 1.4, "F");
+      if (e._clash) {
+        doc.setDrawColor(clash); doc.setLineWidth(0.5);
+        doc.roundedRect(x, top, w, h, 1.4, 1.4, "S");
+        doc.setDrawColor(line); doc.setLineWidth(0.2);
+      }
+      const tw = w - 3.2;
+      let ty = top + 3.6;
+      const put = (text, size, style, color) => {
+        doc.setFont("helvetica", style); doc.setFontSize(size); doc.setTextColor(color);
+        const lines = doc.splitTextToSize(text, tw);
+        const lh = size * 0.42;
+        for (const ln of lines) {
+          if (ty > bottom) return;
+          doc.text(ln, x + 1.6, ty);
+          ty += lh;
+        }
+      };
+      if (e._clash) put("CLASH", 6.5, "bold", clash);
+      put(e.code + "  " + f2(e.start) + "-" + f2(e.end), 8.5, "bold", fg);
+      put(e.room, 7.5, "bold", fg);
+      put(e.type + (e.group ? " " + e.group : ""), 7.5, "normal", fg);
+      put(e.title, 7.5, "normal", fg);
+    });
+
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(muted);
+    doc.text(data.footer, M, H - M + 1);
+    return doc;
+  }
+
+  function weekDateRange(lastDay) {
+    const v = $("d-" + term).value;
+    if (!v) return "";
+    const [y, mo, da] = v.split("-").map(Number);
+    const base = new Date(Date.UTC(y, mo - 1, da));
+    const monday = base.getTime() - ((base.getUTCDay() + 6) % 7) * 86400000 + (week - 1) * 7 * 86400000;
+    const o = { day: "numeric", month: "short", timeZone: "UTC" };
+    const a = new Date(monday), b = new Date(monday + lastDay * 86400000);
+    return a.toLocaleDateString("en-GB", o) + " - " + b.toLocaleDateString("en-GB", o) + " " + b.getUTCFullYear();
+  }
+
+  $("pdfBtn").addEventListener("click", async () => {
+    const btn = $("pdfBtn"), st = $("pdfStatus");
+    const evs = weekRows(term, week);
+    if (!evs.length) { st.className = "status err"; st.textContent = "No sessions this week."; return; }
+    btn.disabled = true; st.className = "status"; st.textContent = "Preparing PDF…";
+    try {
+      const jsPDF = await loadJsPdf();
+      const all = termRows(term);
+      const lastDay = Math.max(4, ...all.map((r) => r.day));
+      const events = [];
+      for (let d = 0; d <= lastDay; d++) {
+        layoutDay(evs.filter((e) => e.day === d).map((e) => ({ ...e, color: colorOf[e.code] }))).forEach((e) => events.push(e));
+      }
+      const mins = evs.reduce((s, e) => s + (e.end - e.start), 0);
+      const range = weekDateRange(lastDay);
+      const doc = drawWeekPdf(jsPDF, {
+        title: term + " Term, Week " + week + (isMine ? "" : " (example)"),
+        subtitle: [range, evs.length + " sessions", Math.round(mins / 6) / 10 + " contact hours"].filter(Boolean).join("   |   "),
+        days: DAYS.slice(0, lastDay + 1),
+        first: Math.min(9 * 60, ...all.map((r) => Math.floor(r.start / 60) * 60)),
+        last: Math.max(18 * 60, ...all.map((r) => Math.ceil(r.end / 60) * 60)),
+        events,
+        footer: "Made with LfY Week View  " + SITE_URL + "   Unofficial. Always check LfY for room changes."
+      });
+      doc.save("lse-timetable-" + term.toLowerCase() + "-week-" + week + ".pdf");
+      st.textContent = "";
+    } catch (err) {
+      st.className = "status err";
+      st.textContent = "Couldn't create the PDF. Check your internet connection and try again.";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   const framed = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
-  if (framed) { $("dlBtn").hidden = true; $("copyHint").hidden = false; }
+  if (framed) { $("dlBtn").hidden = true; $("pdfBtn").hidden = true; $("copyHint").hidden = false; }
 
   function icsReport(res, verb) {
     const st = $("icsStatus");
