@@ -588,6 +588,8 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     ];
     let count = 0;
     const missing = [];
+    // Fresh UIDs per export: Google Calendar silently ignores re-imported events whose UIDs were deleted before.
+    const run = Date.now().toString(36);
     rows.forEach((r, i) => {
       const input = $("d-" + r.term);
       const v = input && input.value;
@@ -599,7 +601,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
         const d = new Date(base.getTime() + ((w - 1) * 7 + r.day - mondayShift) * 86400000);
         const date = ymd(d);
         lines.push("BEGIN:VEVENT",
-          "UID:" + [r.code, r.type, r.group || "x", r.term, w, r.day, r.start, i].join("-").replace(/[^A-Za-z0-9.-]/g, "") + "@lfy-week-view",
+          "UID:" + [r.code, r.type, r.group || "x", r.term, w, r.day, r.start, i, run].join("-").replace(/[^A-Za-z0-9.-]/g, "") + "@lfy-week-view",
           "DTSTAMP:" + now,
           "DTSTART;TZID=Europe/London:" + date + "T" + hm(r.start),
           "DTEND;TZID=Europe/London:" + date + "T" + hm(r.end),
