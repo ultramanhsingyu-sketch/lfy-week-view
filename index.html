@@ -149,6 +149,30 @@ h1 span { color: var(--muted); font-weight: 500; }
 }
 .empty-week { padding: 40px 20px; text-align: center; color: var(--muted); }
 
+.agenda { display: grid; }
+.aday { padding: 14px 14px 16px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
+.aday:first-child { border-top: 0; }
+.aday h3 { margin: 0; font-size: 15px; font-weight: 700; display: flex; justify-content: space-between; align-items: baseline; }
+.aday h3 small { font-weight: 400; color: var(--muted); font-size: 12px; font-family: var(--mono); }
+.aitem { display: grid; grid-template-columns: 50px minmax(0, 1fr); gap: 10px; }
+.atime { font-family: var(--mono); font-size: 13px; font-weight: 600; padding-top: 8px; font-variant-numeric: tabular-nums; }
+.atime span { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+.acard { background: var(--bg); color: var(--fg); border-radius: 8px; padding: 8px 10px; display: grid; gap: 2px; border: 1px solid transparent; }
+.aitem.clash .acard { border-color: var(--clash); box-shadow: inset 0 0 0 1px var(--clash); }
+.acard .code { font-family: var(--mono); font-weight: 600; font-size: 13px; }
+.acard .ttl { font-size: 14px; font-weight: 500; }
+.acard .meta { font-family: var(--mono); font-size: 12px; opacity: .85; }
+.acard .clash-tag {
+  justify-self: start; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--clash); color: var(--surface); padding: 0 5px; border-radius: 3px;
+}
+.aempty { color: var(--muted); font-size: 13px; margin: 0; }
+@media (max-width: 640px) {
+  .term-word { display: none; }
+  .seg button { padding: 6px 14px; }
+  .pdf-box { margin-left: 0; }
+}
+
 .lower { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 22px; align-items: start; }
 @media (max-width: 860px) { .lower { grid-template-columns: 1fr; } }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 14px; }
@@ -394,7 +418,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
       const b = document.createElement("button");
       b.type = "button";
       b.id = "term-" + t;
-      b.textContent = t + " Term";
+      b.innerHTML = t + "<span class=\"term-word\"> Term</span>";
       b.setAttribute("aria-pressed", String(t === term));
       b.disabled = termRows(t).length === 0;
       b.addEventListener("click", () => { term = t; pickWeek(); store.set("lwv.term", term); render(); });
@@ -443,6 +467,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     }
     const all = termRows(term);
     const lastDay = Math.max(4, ...all.map((r) => r.day));
+    if (narrow.matches) { renderAgenda(board, evs, lastDay); return; }
     const first = Math.min(9 * 60, ...all.map((r) => Math.floor(r.start / 60) * 60));
     const last = Math.max(18 * 60, ...all.map((r) => Math.ceil(r.end / 60) * 60));
     const hourPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 58;
@@ -508,6 +533,51 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
       grid.appendChild(col);
     }
     board.appendChild(grid);
+  }
+
+  // Phones: one day after another instead of a wide grid
+  const narrow = window.matchMedia("(max-width: 640px)");
+
+  function renderAgenda(board, evs, lastDay) {
+    const list = document.createElement("div");
+    list.className = "agenda";
+    for (let d = 0; d <= lastDay; d++) {
+      const dayEvs = layoutDay(evs.filter((e) => e.day === d).map((e) => ({ ...e })))
+        .sort((a, b) => a.start - b.start || a.end - b.end);
+      const sec = document.createElement("section");
+      sec.className = "aday";
+      const h = document.createElement("h3");
+      h.innerHTML = "<span></span><small></small>";
+      h.firstChild.textContent = DAYS[d];
+      h.lastChild.textContent = dayEvs.length ? dayEvs.length + (dayEvs.length > 1 ? " sessions" : " session") : "";
+      sec.appendChild(h);
+      if (!dayEvs.length) {
+        const p = document.createElement("p");
+        p.className = "aempty";
+        p.textContent = "No sessions";
+        sec.appendChild(p);
+      }
+      dayEvs.forEach((e) => {
+        const c = colorOf[e.code];
+        const item = document.createElement("div");
+        item.className = "aitem" + (e._clash ? " clash" : "");
+        item.innerHTML =
+          "<div class=\"atime\"><b></b><span></span></div>" +
+          "<div class=\"acard\">" + (e._clash ? "<span class=\"clash-tag\">Clash</span>" : "") +
+          "<span class=\"code\"></span><span class=\"ttl\"></span><span class=\"meta\"></span></div>";
+        item.querySelector(".atime b").textContent = fmt(e.start);
+        item.querySelector(".atime span").textContent = fmt(e.end);
+        const card = item.querySelector(".acard");
+        card.style.setProperty("--bg", "var(--c" + c + "-bg)");
+        card.style.setProperty("--fg", "var(--c" + c + "-fg)");
+        card.querySelector(".code").textContent = e.code;
+        card.querySelector(".ttl").textContent = e.title;
+        card.querySelector(".meta").textContent = e.type + (e.group ? " " + e.group : "") + " · " + e.room;
+        sec.appendChild(item);
+      });
+      list.appendChild(sec);
+    }
+    board.appendChild(list);
   }
 
   function pickWeek() {
@@ -788,6 +858,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
   });
 
   // Boot
+  try { narrow.addEventListener("change", () => { if (rows.length) renderBoard(); }); } catch (e) {}
   const savedTerm = store.get("lwv.term");
   if (savedTerm && TERMS.includes(savedTerm)) term = savedTerm;
   const savedWeek = parseInt(store.get("lwv.week") || "", 10);
