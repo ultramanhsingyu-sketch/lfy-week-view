@@ -191,6 +191,10 @@ textarea {
 .btn:disabled { opacity: .45; cursor: default; }
 .status { font-size: 13px; color: var(--muted); }
 .status.err { color: var(--clash); }
+.unread { background: var(--clash-soft); border-radius: 8px; padding: 10px 12px; font-size: 13px; display: grid; gap: 6px; }
+.unread p { margin: 0; }
+.unread ul { margin: 0; padding-left: 18px; font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.unread .email { font-family: var(--mono); user-select: all; }
 .privacy { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line-soft); padding-top: 12px; margin: 0; }
 
 .dates { display: grid; gap: 8px; }
@@ -254,6 +258,10 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
         <button class="btn" id="exampleBtn" type="button">Show example</button>
         <span class="status" id="parseStatus" role="status"></span>
       </div>
+      <div class="unread" id="unread" hidden>
+        <p>These rows couldn't be read, so they're missing from your week. Please send them to <span class="email">h.wang168@lse.ac.uk</span> so the tool can be fixed:</p>
+        <ul></ul>
+      </div>
       <p class="privacy">Your timetable is read inside this page and kept only in this browser. Nothing is uploaded, and the page never asks for your LSE login.</p>
     </section>
 
@@ -297,7 +305,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
 (function () {
   const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const TERMS = ["Autumn", "Winter", "Spring"];
-  const TYPES = "Lecture|Seminar|Class|Workshop|Lab|Tutorial|Practical|Help Session|Office Hour|Other";
+  const TYPES = "Computer Workshop|Workshop|Lecture|Seminar|Class|Laboratory|Lab|Tutorial|Practical|Help Session|Office Hours?|Revision Session|Revision|Fieldwork|Discussion Group|Other";
 
   // Fictional sample, written out the way LfY's Teaching Timetable copies (one cell per line).
   const EXAMPLE_TERMS = {
@@ -345,22 +353,48 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     const headRe = /\b(Autumn|Winter|Spring|Summer) Term\b/gi;
     let h;
     while ((h = headRe.exec(flat))) heads.push({ at: h.index, term: h[1][0].toUpperCase() + h[1].slice(1).toLowerCase() });
-    const rowRe = new RegExp(
-      "\\b(" + DAYS.join("|") + ")\\s+(\\d{1,2}:\\d{2})\\s+(\\d{1,2}:\\d{2})\\s+([A-Z]{2,4}\\d{3}[A-Z0-9.]*)\\s+(.+?)\\s+(" + TYPES +
-      ")\\s+(?:(\\d{1,3})\\s+)?(\\S+)\\s*((?:(?:1[01]|[1-9]|[·•.\\-])(?:\\s+|$))*)", "gi");
+    // Each row starts with "Day HH:MM HH:MM"; cut the text into one segment per row.
+    const lead = "^(" + DAYS.join("|") + ")\\s+(\\d{1,2}:\\d{2})\\s+(\\d{1,2}:\\d{2})\\s+";
+    // Course codes: MA429, LN952.A, EC1A3, LSE100 ...
+    const code = "([A-Z]{2,5}\\d[A-Z0-9]{0,5}(?:\\.[A-Z0-9]+)?)\\s+";
+    const tok = "(?:1[01]|[1-9]|[·•.\\-])";
+    const types = "(?:" + TYPES + ")(?:\\s*/\\s*(?:" + TYPES + "))?";
+    // 1) Known session type: title, type, optional group, room (may contain spaces, e.g. "Old Theatre"), weeks
+    const rowRe = new RegExp(lead + code + "(.+?)\\s+(" + types + ")\\s+(?:(\\d{1,3})\\s+)?(\\S+(?:\\s+\\S+)*?)\\s+((?:" + tok + "(?:\\s+|$))+)", "i");
+    // 2) Any wording: anchor on the full 11-week strip instead of the type
+    const looseRe = new RegExp(lead + code + "(.+?)\\s+(?:(\\d{1,3})\\s+)?(\\S+)\\s+((?:" + tok + "\\s+){10}" + tok + ")(?:\\s|$)", "i");
+    const startRe = new RegExp("\\b(?:" + DAYS.join("|") + ")\\s+\\d{1,2}:\\d{2}\\s+\\d{1,2}:\\d{2}\\b", "gi");
+    const starts = [];
+    let s;
+    while ((s = startRe.exec(flat))) starts.push(s.index);
+
     const rows = [];
-    let m;
-    while ((m = rowRe.exec(flat))) {
+    const unread = [];
+    const cap = (w) => w.split("/").map((p) => p.trim()).map((p) => p[0].toUpperCase() + p.slice(1).toLowerCase()).join("/");
+    starts.forEach((at, i) => {
+      let end = i + 1 < starts.length ? starts[i + 1] : flat.length;
+      for (const hd of heads) if (hd.at > at && hd.at < end) end = hd.at;
+      const seg = flat.slice(at, end).trim();
       let term = "Autumn";
-      for (const hd of heads) if (hd.at < m.index) term = hd.term;
-      const weeks = (m[9] || "").trim().split(/\s+/).filter((w) => /^\d+$/.test(w)).map(Number);
-      const day = DAYS.findIndex((d) => d.toLowerCase() === m[1].toLowerCase());
+      for (const hd of heads) if (hd.at < at) term = hd.term;
+      let r = null, m;
+      if ((m = rowRe.exec(seg))) {
+        r = { dayName: m[1], start: m[2], end: m[3], code: m[4], title: m[5], type: cap(m[6]), group: m[7], room: m[8], weeks: m[9] };
+      } else if ((m = looseRe.exec(seg))) {
+        const words = m[5].trim().split(" ");
+        const type = words.length > 1 ? words.pop() : "Session";
+        r = { dayName: m[1], start: m[2], end: m[3], code: m[4], title: words.join(" "), type: cap(type), group: m[6], room: m[7], weeks: m[8] };
+      }
+      if (!r) { unread.push(seg.slice(0, 90)); return; }
+      const weeks = (r.weeks || "").trim().split(/\s+/).filter((w) => /^\d+$/.test(w)).map(Number);
       rows.push({
-        term, day, start: toMin(m[2]), end: toMin(m[3]), code: m[4], title: m[5].trim(),
-        type: m[6][0].toUpperCase() + m[6].slice(1).toLowerCase(), group: m[7] || "", room: m[8],
+        term, day: DAYS.findIndex((d) => d.toLowerCase() === r.dayName.toLowerCase()),
+        start: toMin(r.start), end: toMin(r.end), code: r.code.toUpperCase(), title: r.title.trim(),
+        type: r.type, group: r.group || "", room: r.room,
         weeks: weeks.length ? weeks : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
       });
-    }
+    });
+    rows.unread = unread;
     return rows;
   }
 
@@ -597,8 +631,12 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     renderBoard();
   }
 
+  let lastUnread = [];
+
   function load(text, mine) {
     const parsed = parse(text);
+    lastUnread = parsed.unread;
+    showUnread();
     if (!parsed.length) return 0;
     rows = parsed;
     isMine = mine;
@@ -628,8 +666,21 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     }
     store.set("lwv.paste", text);
     const byTerm = TERMS.map((t) => termRows(t).length).map((c, i) => c ? c + " " + TERMS[i] : "").filter(Boolean).join(", ");
-    st.className = "status";
-    st.textContent = "Read " + n + " sessions (" + byTerm + ").";
+    st.className = lastUnread.length ? "status err" : "status";
+    st.textContent = "Read " + n + " of " + (n + lastUnread.length) + " sessions (" + byTerm + ").";
+  }
+
+  function showUnread() {
+    const box = $("unread");
+    box.hidden = !lastUnread.length;
+    if (!lastUnread.length) return;
+    const list = box.querySelector("ul");
+    list.innerHTML = "";
+    lastUnread.forEach((line) => {
+      const li = document.createElement("li");
+      li.textContent = line;
+      list.appendChild(li);
+    });
   }
 
   $("buildBtn").addEventListener("click", build);
