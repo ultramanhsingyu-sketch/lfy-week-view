@@ -31,7 +31,7 @@
   --c7-bg: #E4E7EC; --c7-fg: #333C4A;
   --sans: "Schibsted Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  --hour: 58px;
+  --hour: 66px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -140,8 +140,9 @@ h1 span { color: var(--muted); font-weight: 500; }
 }
 .ev .code { font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: -0.01em; }
 .ev .ttl { font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.ev .meta { font-family: var(--mono); font-size: 11px; opacity: .85; }
-.ev.short .ttl { display: none; }
+.ev .meta { font-family: var(--mono); font-size: 11px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev.short .ttl { -webkit-line-clamp: 1; }
+.ev.tiny .ttl { display: none; }
 .ev.clash { border-color: var(--clash); box-shadow: inset 0 0 0 1px var(--clash); }
 .ev .clash-tag {
   align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -504,7 +505,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     if (narrow.matches) { renderAgenda(board, evs, lastDay); return; }
     const first = Math.min(9 * 60, ...all.map((r) => Math.floor(r.start / 60) * 60));
     const last = Math.max(18 * 60, ...all.map((r) => Math.ceil(r.end / 60) * 60));
-    const hourPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 58;
+    const hourPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 66;
     const px = (m) => (m - first) / 60 * hourPx;
     const height = px(last);
 
@@ -546,7 +547,7 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
       dayEvs.forEach((e) => {
         const el = document.createElement("div");
         const c = colorOf[e.code];
-        el.className = "ev" + (e._clash ? " clash" : "") + (e.end - e.start <= 60 ? " short" : "");
+        el.className = "ev" + (e._clash ? " clash" : "") + (e.end - e.start <= 40 ? " tiny" : e.end - e.start <= 60 ? " short" : "");
         el.style.setProperty("--bg", "var(--c" + c + "-bg)");
         el.style.setProperty("--fg", "var(--c" + c + "-fg)");
         const w = 100 / e._lanes;
