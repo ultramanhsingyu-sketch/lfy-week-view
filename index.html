@@ -65,6 +65,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   background: var(--ground);
   color: var(--ink);
@@ -672,7 +673,10 @@ footer .email { font-family: var(--mono); font-size: 12.5px; color: var(--muted)
     const n = load(text, true);
     if (!n) {
       st.className = "status err";
-      st.textContent = "No sessions found. Copy the Teaching Timetable tab itself, including the Day, Start and End columns.";
+      const onlyHeadings = /\b(Autumn|Winter|Spring) Term\b/i.test(text) && !/\d{1,2}:\d{2}/.test(text);
+      st.textContent = onlyHeadings
+        ? "Only the term headings were copied, not the table rows. Some browsers (often Safari or Firefox) skip the table contents when copying from LfY. Please try again in Chrome or Edge."
+        : "No sessions found. Copy the Teaching Timetable tab itself, including the Day, Start and End columns.";
       return;
     }
     store.set("lwv.paste", text);
